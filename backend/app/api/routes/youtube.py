@@ -37,11 +37,9 @@ async def submit_youtube(
 
 @router.get("/info")
 def get_info(url: str):
-    # NOTE: sync `def` so FastAPI runs this in a threadpool — the blocking
-    # subprocess.run below must NOT run on the async event loop, or it would
-    # freeze every other request (this caused the 120s client timeouts).
     if not is_valid_youtube(url):
         raise HTTPException(400, "Invalid YouTube URL")
+
     cmd = [
         "yt-dlp", "--dump-json", "--no-playlist",
         "--no-warnings", "--no-update",
@@ -49,19 +47,42 @@ def get_info(url: str):
         "--skip-download",
         url,
     ]
+
     try:
         r = subprocess.run(cmd, capture_output=True, text=True, timeout=25)
     except subprocess.TimeoutExpired:
-        raise HTTPException(504, "Timed out fetching video info. Try again or check your connection.")
+        raise HTTPException(
+            status_code=504,
+            detail="Timed out fetching video info. Try again."
+        )
     except Exception as e:
-        raise HTTPException(500, str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+
     if r.returncode != 0:
-        logger.warning(f"yt-dlp info failed for {url}: {r.stderr[-300:] if r.stderr else 'no stderr'}")
-        raise HTTPException(400, "Could not fetch info — check URL or update yt-dlp")
+        logger.error(f"""
+yt-dlp FAILED
+Return Code: {r.returncode}
+
+STDOUT:
+{r.stdout}
+
+STDERR:
+{r.stderr}
+""")
+
+        raise HTTPException(
+            status_code=400,
+            detail=r.stderr
+        )
+
     try:
         d = json.loads(r.stdout)
     except json.JSONDecodeError:
-        raise HTTPException(502, "Unexpected response from yt-dlp")
+        raise HTTPException(
+            status_code=502,
+            detail="Unexpected response from yt-dlp"
+        )
+
     return {
         "title": d.get("title"),
         "duration": d.get("duration"),
