@@ -53,15 +53,16 @@ class Settings(BaseSettings):
 
     # TTS
 
-    # AI APIs
+     # AI APIs
     groq_api_key: str = ""  # Get free key at https://console.groq.com
 
     # CORS
-backend_cors_origins: List[str] = [
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-    "https://videolm-frontend.vercel.app",
-]
+    backend_cors_origins: List[str] = [
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "https://videolm-frontend.vercel.app",
+    ]
+
 
 
 settings = Settings()
